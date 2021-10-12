@@ -38,57 +38,56 @@ def get_average_vector(embeddings):
     return np.average(embeddings, axis=0)
 
 
-def get_embeddings_bow(dt):
+def get_bow_embeddings(dt):
     cv = CountVectorizer(dt)
-    count_vector = cv.fit_transform(dt)
+    cv.fit_transform(dt)
     vocab = cv.get_feature_names()
     embeddings = embed(vocab)
     avg = get_average_vector(embeddings)
     return avg
 
 
-def compute_dataset_proximity(name_datasets, name_target_datasets, embeddings, fg_metric, hit_n):
+def compute_dataset_proximity(datasets_name, target_datasets_name, embeddings, fg_metric, hit_n):
     if fg_metric == 0:
         similarities = cosine_similarity(embeddings)
     else:
         similarities = euclidean_distances(embeddings)
 
     df = pd.DataFrame(similarities,
-                      index=name_datasets,
-                      columns=name_datasets)
+                      index=datasets_name,
+                      columns=datasets_name)
 
     most_similars = []
     if fg_metric == 0:
-        for el in name_target_datasets:
+        for el in target_datasets_name:
             most_similars.append(df[el].nlargest(n=hit_n + 1))
     else:
-        for el in name_target_datasets:
+        for el in target_datasets_name:
             most_similars.append(df[el].nsmallest(n=hit_n + 1))
 
-    return df.filter(name_target_datasets) \
+    return df.filter(target_datasets_name) \
                .style \
-               .background_gradient(axis=None).set_properties(subset=name_target_datasets,
+               .background_gradient(axis=None).set_properties(subset=target_datasets_name,
                                                               **{'width': '70px'}), most_similars
 
-def build_unified_similarity_ranking(rankings_list, name_datasets, name_target_datasets):
+def build_unified_similarity_ranking(rankings_list, datasets_name, target_datasets_name):
     dicts = []
     count = 0
     for i, j, k, l in zip(rankings_list[0], rankings_list[1], rankings_list[2], rankings_list[3]):
       data = {}
-      for e in name_datasets:
+      for e in datasets_name:
         data[e] = 0
-      #print('Dataset <'+ name_target_datasets[count] +'>:')
       for index, value in i.items():
-        if index != name_target_datasets[count]:
+        if index != target_datasets_name[count]:
             data[index] = data.get(index) + 1
       for index, value in j.items():
-        if index != name_target_datasets[count]:
+        if index != target_datasets_name[count]:
             data[index] = data.get(index) + 1
       for index, value in k.items():
-        if index != name_target_datasets[count]:
+        if index != target_datasets_name[count]:
             data[index] = data.get(index) + 1
       for index, value in l.items():
-        if index != name_target_datasets[count]:
+        if index != target_datasets_name[count]:
             data[index] = data.get(index) + 1
       dicts.append(data)
       count = count + 1
@@ -97,42 +96,39 @@ def build_unified_similarity_ranking(rankings_list, name_datasets, name_target_d
 embed = hub.load("https://tfhub.dev/google/universal-sentence-encoder-multilingual/3")
 l1, l2 = load_all_datasets()
 
-list_embeddings_avg = []
-list_embeddings_vocab_avg = []
+avg_embeddings_list = []
+avg_vocab_embeddings_list = []
 
 for i in l1:
     embeddings = get_average_vector(embed(i))
-    list_embeddings_avg.append(embeddings)
-    bow = get_embeddings_bow(i)
-    list_embeddings_vocab_avg.append(bow)
+    avg_embeddings_list.append(embeddings)
+    bow = get_bow_embeddings(i)
+    avg_vocab_embeddings_list.append(bow)
 
 
-name_datasets = ['2018 BR Election PT', 'Restaurants PT', '2016 US Election EN', 'GOP Debate EN',
+datasets_name = ['2018 BR Election PT', 'Restaurants PT', '2016 US Election EN', 'GOP Debate EN',
                  '2012 US Election EN', 'TV PT', 'Music Festival EN', 'Urban Problems PT', 'Airlines EN',
                  'Movies 1 EN', 'Movies PT', 'Movies 2 EN', 'Apple EN', 'Airlines ES', '2018 CO Election ES',
                  'Sports ES']
-name_target_datasets = ['2018 BR Election PT', '2016 US Election EN', '2012 US Election EN', '2018 CO Election ES']
+target_datasets_name = ['2018 BR Election PT', '2016 US Election EN', '2012 US Election EN', '2018 CO Election ES']
 
-a, most_similar_a = compute_dataset_proximity(name_datasets, name_target_datasets, list_embeddings_avg, 0, 5)
-b, most_similar_b = compute_dataset_proximity(name_datasets, name_target_datasets, list_embeddings_avg, 1, 5)
-cc, most_similar_c = compute_dataset_proximity(name_datasets, name_target_datasets, list_embeddings_vocab_avg, 0, 5)
-d, most_similar_d = compute_dataset_proximity(name_datasets, name_target_datasets, list_embeddings_vocab_avg, 1, 5)
+a, most_similar_a = compute_dataset_proximity(datasets_name, target_datasets_name, avg_embeddings_list, 0, 5)
+b, most_similar_b = compute_dataset_proximity(datasets_name, target_datasets_name, avg_embeddings_list, 1, 5)
+cc, most_similar_c = compute_dataset_proximity(datasets_name, target_datasets_name, avg_vocab_embeddings_list, 0, 5)
+d, most_similar_d = compute_dataset_proximity(datasets_name, target_datasets_name, avg_vocab_embeddings_list, 1, 5)
 
-display(pd.DataFrame(most_similar_a))
-
-display(pd.DataFrame(most_similar_b))
-
-display(pd.DataFrame(most_similar_c))
-
-display(pd.DataFrame(most_similar_d))
+#display(pd.DataFrame(most_similar_a))
+#display(pd.DataFrame(most_similar_b))
+#display(pd.DataFrame(most_similar_c))
+#display(pd.DataFrame(most_similar_d))
 
 rankings_list = [most_similar_a, most_similar_b, most_similar_c, most_similar_d]
 
-dicts = build_unified_similarity_ranking(rankings_list, name_datasets, name_target_datasets)
+dicts = build_unified_similarity_ranking(rankings_list, datasets_name, target_datasets_name)
 
 sim_df = pd.DataFrame(dicts).transpose()
-sim_df.columns = name_target_datasets
+sim_df.columns = target_datasets_name
 cm = sns.color_palette("blend:white,green", as_cmap=True)
-sim_df.style.background_gradient(cmap=cm, axis=None).set_properties(subset=name_target_datasets,
+sim_df.style.background_gradient(cmap=cm, axis=None).set_properties(subset=target_datasets_name,
                                                                     **{'width': '60px'}, **{'text-align': 'center'})
 
